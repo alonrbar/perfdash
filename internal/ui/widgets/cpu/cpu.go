@@ -63,13 +63,13 @@ func (widget *Widget) Start(topLeft geo.Point) {
 // Redraw the CPU widget
 func (widget *Widget) Redraw(topLeft geo.Point) error {
 
-	const width = 15
+	const graphWidth = 10
 
 	gui := widget.gui
 
 	_, termHeight := gui.Size()
 
-	view, err := gui.SetView(ViewName, topLeft.X, topLeft.Y, width, termHeight-ui.MarginBottom)
+	view, err := gui.SetView(ViewName, topLeft.X, topLeft.Y, graphWidth+3, termHeight-ui.MarginBottom)
 	if err != nil && err != gocui.ErrUnknownView {
 		// ErrUnknownView is not a real error condition.
 		// It just says that the view did not exist before and needs initialization.
@@ -89,12 +89,12 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 		widget.values = append(widget.values, cpuVal)
 	}
 
-	printGraph(widget.values, view, width)
+	printGraph(widget.values, view, graphWidth)
 
 	return nil
 }
 
-func printGraph(values []int, view *gocui.View, maxWidth int) {
+func printGraph(values []int, view *gocui.View, graphWidth int) {
 
 	max := 0
 	for _, val := range values {
@@ -103,13 +103,12 @@ func printGraph(values []int, view *gocui.View, maxWidth int) {
 		}
 	}
 
-	start := num.Max(0, len(values)-maxWidth)
+	start := num.Max(0, len(values)-graphWidth)
 
 	builder := strings.Builder{}
 	for row := max; row > 0; row-- {
 
-		builder.WriteString(strconv.FormatInt(int64(row), 10))
-		builder.WriteString(" ")
+		builder.WriteString(fmt.Sprintf("%2v ", row))
 
 		for col := start; col < len(values); col++ {
 			if values[col] >= row {
