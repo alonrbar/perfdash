@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alonrbar/perfdash/internal/lib/geo"
+	"github.com/alonrbar/perfdash/internal/lib/num"
 	"github.com/alonrbar/perfdash/internal/ui"
 	"github.com/jroimartin/gocui"
 )
@@ -54,7 +55,7 @@ func (widget *Widget) Start(topLeft geo.Point) {
 				// updates to the UI must happen inside a gui.Update method
 				return widget.Redraw(topLeft)
 			})
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Second * 2)
 		}
 	}()
 }
@@ -62,11 +63,13 @@ func (widget *Widget) Start(topLeft geo.Point) {
 // Redraw the CPU widget
 func (widget *Widget) Redraw(topLeft geo.Point) error {
 
+	const width = 15
+
 	gui := widget.gui
 
-	termWidth, termHeight := gui.Size()
+	_, termHeight := gui.Size()
 
-	view, err := gui.SetView(ViewName, topLeft.X, topLeft.Y, termWidth/2, termHeight-ui.MarginBottom)
+	view, err := gui.SetView(ViewName, topLeft.X, topLeft.Y, width, termHeight-ui.MarginBottom)
 	if err != nil && err != gocui.ErrUnknownView {
 		// ErrUnknownView is not a real error condition.
 		// It just says that the view did not exist before and needs initialization.
@@ -86,12 +89,12 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 		widget.values = append(widget.values, cpuVal)
 	}
 
-	printGraph(widget.values, view)
+	printGraph(widget.values, view, width)
 
 	return nil
 }
 
-func printGraph(values []int, view *gocui.View) {
+func printGraph(values []int, view *gocui.View, maxWidth int) {
 
 	max := 0
 	for _, val := range values {
@@ -100,10 +103,15 @@ func printGraph(values []int, view *gocui.View) {
 		}
 	}
 
+	start := num.Max(0, len(values)-maxWidth)
+
 	builder := strings.Builder{}
 	for row := max; row > 0; row-- {
 
-		for col := 0; col < len(values); col++ {
+		builder.WriteString(strconv.FormatInt(int64(row), 10))
+		builder.WriteString(" ")
+
+		for col := start; col < len(values); col++ {
 			if values[col] >= row {
 				_, err := builder.WriteString("\u2588")
 				if err != nil {
@@ -135,6 +143,9 @@ func getCPU() (int, error) {
 	}
 
 	parts := strings.Fields(buf.String())
+	if len(parts) < 2 {
+		return 0, nil
+	}
 	cpuStr := strings.TrimSpace(parts[1])
 	cpuInt, err := strconv.ParseInt(cpuStr, 10, 32)
 	if err != nil {
