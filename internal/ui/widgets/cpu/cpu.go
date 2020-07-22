@@ -15,12 +15,11 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// -------------------- //
-//   Public constants
-// -------------------- //
+// ------------------ //
+//   Private consts
+// ------------------ //
 
-// ViewName = "CPU"
-const ViewName = "CPU"
+const viewName = "CPU"
 
 // ------------------ //
 //   Public types
@@ -69,7 +68,7 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 
 	_, termHeight := gui.Size()
 
-	view, err := gui.SetView(ViewName, topLeft.X, topLeft.Y, graphWidth+3, termHeight-ui.MarginBottom)
+	view, err := gui.SetView(viewName, topLeft.X, topLeft.Y, graphWidth+3, termHeight-ui.MarginBottom)
 	if err != nil && err != gocui.ErrUnknownView {
 		// ErrUnknownView is not a real error condition.
 		// It just says that the view did not exist before and needs initialization.
@@ -78,7 +77,7 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 
 	view.Clear()
 
-	view.Title = ViewName
+	view.Title = viewName
 	view.Highlight = true
 	view.FgColor = gocui.ColorCyan
 	view.SelFgColor = gocui.ColorCyan
@@ -93,6 +92,10 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 
 	return nil
 }
+
+// ------------------ //
+//   Private methods
+// ------------------ //
 
 func printGraph(values []int, view *gocui.View, graphWidth int) {
 
