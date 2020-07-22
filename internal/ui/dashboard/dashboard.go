@@ -91,14 +91,6 @@ func (dash *Dashboard) Close() {
 // Layout handler re-calculates view sizes when the terminal window resizes
 func layout(dash *Dashboard) layoutFunc {
 	return func(gui *gocui.Gui) error {
-
-		err := dash.cpuWidget.Redraw(geo.Origin)
-		if err != nil {
-			return err
-		}
-
-		gui.Cursor = false
-
 		return nil
 	}
 }

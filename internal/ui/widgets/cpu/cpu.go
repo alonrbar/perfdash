@@ -1,7 +1,12 @@
 package cpu
 
 import (
+	"bytes"
 	"fmt"
+	"log"
+	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alonrbar/perfdash/internal/lib/geo"
@@ -22,8 +27,8 @@ const ViewName = "CPU"
 
 // Widget is the UI widget for the CPU meter
 type Widget struct {
-	caption string
-	gui     *gocui.Gui
+	values []int
+	gui    *gocui.Gui
 }
 
 // ------------------ //
@@ -49,7 +54,7 @@ func (widget *Widget) Start(topLeft geo.Point) {
 				// updates to the UI must happen inside a gui.Update method
 				return widget.Redraw(topLeft)
 			})
-			time.Sleep(time.Second)
+			time.Sleep(time.Second * 3)
 		}
 	}()
 }
@@ -75,11 +80,65 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 	view.FgColor = gocui.ColorCyan
 	view.SelFgColor = gocui.ColorCyan
 
-	widget.caption = time.Now().Format(time.RFC3339)
-	_, err = fmt.Fprintln(view, termWidth, termHeight, widget.caption)
-	if err != nil {
-		return err
+	if cpuVal, err := getCPU(); err != nil {
+		log.Panicln("Failed to get cpu", err)
+	} else {
+		widget.values = append(widget.values, cpuVal)
 	}
 
+	printGraph(widget.values, view)
+
 	return nil
+}
+
+func printGraph(values []int, view *gocui.View) {
+
+	max := 0
+	for _, val := range values {
+		if val > max {
+			max = val
+		}
+	}
+
+	builder := strings.Builder{}
+	for row := max; row > 0; row-- {
+
+		for col := 0; col < len(values); col++ {
+			if values[col] >= row {
+				_, err := builder.WriteString("\u2588")
+				if err != nil {
+					log.Panicln(err)
+				}
+			} else {
+				_, err := builder.WriteString(" ")
+				if err != nil {
+					log.Panicln(err)
+				}
+			}
+		}
+		_, err := fmt.Fprintln(view, builder.String())
+		if err != nil {
+			log.Panicln(err)
+		}
+		builder.Reset()
+	}
+}
+
+func getCPU() (int, error) {
+	buf := bytes.Buffer{}
+
+	cmd := exec.Command("wmic", "cpu", "get", "loadpercentage")
+	cmd.Stdout = &buf
+	err := cmd.Run()
+	if err != nil {
+		return 0, err
+	}
+
+	parts := strings.Fields(buf.String())
+	cpuStr := strings.TrimSpace(parts[1])
+	cpuInt, err := strconv.ParseInt(cpuStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int(cpuInt), nil
 }
