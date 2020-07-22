@@ -10,18 +10,23 @@ import (
 
 func main() {
 
+	// Configure logs
 	logfile := createLogFile()
 	defer logfile.Close()
 	log.SetOutput(logfile)
 
 	log.Println("App started")
 
+	// Start the UI
 	dash, err := dashboard.New()
 	if err != nil {
 		log.Fatalln("Failed to init the dashboard", err)
 	}
-
-	dash.Open()
+	err = dash.Open()
+	if err != nil {
+		log.Fatalln("Failed to open dashboard", err)
+	}
+	log.Println("Bye")
 }
 
 func createLogFile() *os.File {

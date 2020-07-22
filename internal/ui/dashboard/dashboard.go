@@ -3,10 +3,14 @@ package dashboard
 import (
 	"log"
 
-	"github.com/alonrbar/perfdash/internal"
+	"github.com/alonrbar/perfdash/internal/lib/geo"
 	"github.com/alonrbar/perfdash/internal/ui/widgets/cpu"
 	"github.com/jroimartin/gocui"
 )
+
+// ------------------ //
+//   Public types
+// ------------------ //
 
 // Dashboard is the main UI element
 type Dashboard struct {
@@ -14,9 +18,15 @@ type Dashboard struct {
 	cpuWidget *cpu.Widget
 }
 
-//
-// Constructors
-//
+// ------------------ //
+//   Private types
+// ------------------ //
+
+type layoutFunc func(gui *gocui.Gui) error
+
+// ------------------ //
+//    Constructors
+// ------------------ //
 
 // New - create new dashboard element
 func New() (*Dashboard, error) {
@@ -24,7 +34,6 @@ func New() (*Dashboard, error) {
 
 	gui, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
-		log.Fatalln("Failed to create GUI: ", err)
 		return nil, err
 	}
 
@@ -36,19 +45,17 @@ func New() (*Dashboard, error) {
 	return dash, nil
 }
 
-//
-// Public methods
-//
+// ------------------ //
+//   Public methods
+// ------------------ //
 
 // Open the dashboard
-func (dash *Dashboard) Open() {
+func (dash *Dashboard) Open() error {
 
 	log.Println("Opening the dashboard")
 
 	// Configure GUI widgets
 	gui := dash.gui
-	dash.cpuWidget.Redraw(internal.Point{X: 0, Y: 0})
-
 	gui.SetManagerFunc(layout(dash))
 
 	// Set key bindings
@@ -57,21 +64,19 @@ func (dash *Dashboard) Open() {
 		return gocui.ErrQuit
 	})
 	if err != nil {
-		log.Println("Could not set key binding: ", err)
-		return
+		return err
 	}
+
+	// Start widget loops
+	dash.cpuWidget.Start(geo.Origin)
 
 	// Start the main UI loop
 	err = gui.MainLoop()
-	if err != nil {
-		if err == gocui.ErrQuit {
-			log.Println("Bye")
-			return
-		}
-
-		log.Fatalln("Failed to start main GUI loop: ", err)
-		return
+	if err != nil && err != gocui.ErrQuit {
+		return err
 	}
+
+	return nil
 }
 
 // Close - close the ui
@@ -79,24 +84,21 @@ func (dash *Dashboard) Close() {
 	dash.gui.Close()
 }
 
-//
-// Private functions
-//
+// --------------------- //
+//   Private functions
+// --------------------- //
 
 // Layout handler re-calculates view sizes when the terminal window resizes
 func layout(dash *Dashboard) layoutFunc {
 	return func(gui *gocui.Gui) error {
 
-		if err := dash.cpuWidget.Redraw(internal.Point{X: 0, Y: 0}); err != nil {
+		err := dash.cpuWidget.Redraw(geo.Origin)
+		if err != nil {
 			return err
 		}
+
+		gui.Cursor = false
 
 		return nil
 	}
 }
-
-//
-// Private types
-//
-
-type layoutFunc func(gui *gocui.Gui) error
