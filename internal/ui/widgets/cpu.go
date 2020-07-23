@@ -10,6 +10,7 @@ import (
 	"github.com/alonrbar/perfdash/internal/lib/geo"
 	"github.com/alonrbar/perfdash/internal/lib/num"
 	"github.com/jroimartin/gocui"
+	"github.com/pkg/errors"
 )
 
 const cpuWidgetName = "CPU"
@@ -103,7 +104,10 @@ func (widget *CPUWidget) Redraw() error {
 	for row := maxValue; row > 0; row-- {
 
 		// Y axis label
-		builder.WriteString(fmt.Sprintf("%2v ", row))
+		_, err := builder.WriteString(fmt.Sprintf("%2v ", row))
+		if err != nil {
+			return errors.Wrap(err, "failed to write Y axis label")
+		}
 
 		// Build current graph row
 		for col := startIndex; col < len(widget.cpuValues); col++ {
@@ -115,14 +119,14 @@ func (widget *CPUWidget) Redraw() error {
 			}
 			_, err := builder.WriteString(char)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "failed to write graph line to builder")
 			}
 		}
 
 		// Emit row to the screen
-		_, err := fmt.Fprintln(widget.view, builder.String())
+		_, err = fmt.Fprintln(widget.view, builder.String())
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to write graph line to screen")
 		}
 		builder.Reset()
 	}
@@ -140,7 +144,7 @@ func (widget *CPUWidget) setView() (*gocui.View, error) {
 	if err != nil && err != gocui.ErrUnknownView {
 		// ErrUnknownView is not a real error condition.
 		// It just says that the view did not exist before and needs initialization.
-		return nil, err
+		return nil, errors.Wrap(err, "failed to set view")
 	}
 	return view, nil
 }
@@ -148,7 +152,7 @@ func (widget *CPUWidget) setView() (*gocui.View, error) {
 func (widget *CPUWidget) addCPUSample() error {
 	cpuVal, err := getCPU()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get CPU usage data")
 	}
 	widget.cpuValues = append(widget.cpuValues, cpuVal)
 	return nil
@@ -168,10 +172,10 @@ func getCPU() (int, error) {
 	var queryResult []cpuQueryResult
 	err := wmi.Query(query, &queryResult)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "WMI CPU query failed")
 	}
 	if len(queryResult) != 1 {
-		log.Fatalln("Invalid query result length", queryResult)
+		return 0, errors.Errorf("invalid query result length: %v", queryResult)
 	}
 
 	return queryResult[0].PercentProcessorTime, nil

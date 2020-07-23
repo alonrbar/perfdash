@@ -20,11 +20,11 @@ func main() {
 	// Start the UI
 	dash, err := dashboard.New()
 	if err != nil {
-		log.Fatalln("Failed to init the dashboard", err)
+		log.Fatalf("Failed to init the dashboard: %+v\n", err)
 	}
 	err = dash.Open()
 	if err != nil {
-		log.Fatalln("Failed to open dashboard", err)
+		log.Fatalf("Failed to open the dashboard: %+v\n", err)
 	}
 	log.Println("Bye")
 }
