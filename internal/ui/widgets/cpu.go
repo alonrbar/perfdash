@@ -1,14 +1,12 @@
 package widgets
 
 import (
-	"bytes"
 	"fmt"
 	"log"
-	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/StackExchange/wmi"
 	"github.com/alonrbar/perfdash/internal/lib/geo"
 	"github.com/alonrbar/perfdash/internal/lib/num"
 	"github.com/jroimartin/gocui"
@@ -75,7 +73,7 @@ func (widget *CPUWidget) Start(topLeft geo.Point) {
 			widget.gui.Update(func(g *gocui.Gui) error {
 				return widget.Redraw()
 			})
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second / 2)
 		}
 	}()
 }
@@ -156,25 +154,25 @@ func (widget *CPUWidget) addCPUSample() error {
 	return nil
 }
 
+type cpuQueryResult struct {
+	PercentProcessorTime int
+}
+
 func getCPU() (int, error) {
-	buf := bytes.Buffer{}
 
-	cmd := exec.Command("wmic", "cpu", "get", "loadpercentage")
-	cmd.Stdout = &buf
-	err := cmd.Run()
+	query := `
+		SELECT PercentProcessorTime 
+		FROM Win32_PerfFormattedData_PerfOS_Processor
+		WHERE Name = "_Total"
+	`
+	var queryResult []cpuQueryResult
+	err := wmi.Query(query, &queryResult)
 	if err != nil {
 		return 0, err
 	}
+	if len(queryResult) != 1 {
+		log.Fatalln("Invalid query result length", queryResult)
+	}
 
-	parts := strings.Fields(buf.String())
-	if len(parts) < 2 {
-		log.Println("Less than 2 parts in CPU command output", buf.String())
-		return 0, nil
-	}
-	cpuStr := strings.TrimSpace(parts[1])
-	cpuInt, err := strconv.ParseInt(cpuStr, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int(cpuInt), nil
+	return queryResult[0].PercentProcessorTime, nil
 }
