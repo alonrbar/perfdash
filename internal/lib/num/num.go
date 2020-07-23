@@ -1,9 +1,16 @@
 package num
 
-// Max of two ints
-func Max(a int, b int) int {
-	if a > b {
-		return a
+import (
+	"math"
+)
+
+// Max of ints
+func Max(nums ...int) int {
+	max := math.MinInt64
+	for _, num := range nums {
+		if num > max {
+			max = num
+		}
 	}
-	return b
+	return max
 }

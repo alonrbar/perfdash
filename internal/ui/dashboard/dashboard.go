@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/alonrbar/perfdash/internal/lib/geo"
-	"github.com/alonrbar/perfdash/internal/ui/widgets/cpu"
+	"github.com/alonrbar/perfdash/internal/ui/widgets"
 	"github.com/jroimartin/gocui"
 )
 
@@ -15,7 +15,7 @@ import (
 // Dashboard is the main UI element
 type Dashboard struct {
 	gui       *gocui.Gui
-	cpuWidget *cpu.Widget
+	cpuWidget *widgets.CPUWidget
 }
 
 // ------------------ //
@@ -37,9 +37,14 @@ func New() (*Dashboard, error) {
 		return nil, err
 	}
 
+	cpuWidget, err := widgets.NewCPUWidget(gui, geo.Origin, geo.Point{X: 13, Y: 20})
+	if err != nil {
+		return nil, err
+	}
+
 	dash := &Dashboard{
 		gui:       gui,
-		cpuWidget: cpu.NewWidget(gui),
+		cpuWidget: cpuWidget,
 	}
 
 	return dash, nil

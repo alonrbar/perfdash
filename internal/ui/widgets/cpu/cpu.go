@@ -1,4 +1,4 @@
-package cpu
+package widgets
 
 import (
 	"bytes"
@@ -11,35 +11,56 @@ import (
 
 	"github.com/alonrbar/perfdash/internal/lib/geo"
 	"github.com/alonrbar/perfdash/internal/lib/num"
-	"github.com/alonrbar/perfdash/internal/ui"
 	"github.com/jroimartin/gocui"
 )
 
-// ------------------ //
-//   Private consts
-// ------------------ //
-
-const viewName = "CPU"
+const cpuWidgetName = "CPU"
 
 // ------------------ //
 //   Public types
 // ------------------ //
 
-// Widget is the UI widget for the CPU meter
-type Widget struct {
-	values []int
-	gui    *gocui.Gui
+// CPUWidget is the UI widget for the CPU meter
+type CPUWidget struct {
+	gui         *gocui.Gui
+	view        *gocui.View
+	topLeft     geo.Point
+	bottomRight geo.Point
+	cpuValues   []int
 }
 
 // ------------------ //
 //    Constructors
 // ------------------ //
 
-// NewWidget - Create new CPU widget
-func NewWidget(gui *gocui.Gui) *Widget {
-	return &Widget{
-		gui: gui,
+// NewCPUWidget creates a new CPU widget
+func NewCPUWidget(gui *gocui.Gui, topLeft geo.Point, bottomRight geo.Point) (*CPUWidget, error) {
+
+	widget := &CPUWidget{
+		gui:         gui,
+		topLeft:     topLeft,
+		bottomRight: bottomRight,
 	}
+
+	gui.Update(func(*gocui.Gui) error {
+
+		view, err := widget.setView()
+		if err != nil {
+			return err
+		}
+		widget.view = view
+
+		view.Title = "CPU"
+		view.Highlight = true
+		view.FgColor = gocui.ColorCyan
+		view.SelFgColor = gocui.ColorCyan
+
+		return nil
+	})
+
+	log.Println("New CPU widget created")
+
+	return widget, nil
 }
 
 // ------------------ //
@@ -47,48 +68,66 @@ func NewWidget(gui *gocui.Gui) *Widget {
 // ------------------ //
 
 // Start the widget redraw loop
-func (widget *Widget) Start(topLeft geo.Point) {
+func (widget *CPUWidget) Start(topLeft geo.Point) {
 	go func() {
 		for {
+			widget.addCPUSample()
 			widget.gui.Update(func(g *gocui.Gui) error {
-				// updates to the UI must happen inside a gui.Update method
-				return widget.Redraw(topLeft)
+				return widget.Redraw()
 			})
 			time.Sleep(time.Second * 2)
 		}
 	}()
 }
 
-// Redraw the CPU widget
-func (widget *Widget) Redraw(topLeft geo.Point) error {
+// Resize the CPU widget and return it's view
+func (widget *CPUWidget) Resize(topLeft geo.Point, bottomRight geo.Point) (*gocui.View, error) {
+	widget.topLeft = topLeft
+	widget.bottomRight = bottomRight
+	return widget.setView()
+}
 
-	const graphWidth = 10
+// Redraw the CPU widget content.
+// Notice: This method must be called inside a gui.Update call.
+func (widget *CPUWidget) Redraw() error {
 
-	gui := widget.gui
+	widget.view.Clear()
 
-	_, termHeight := gui.Size()
+	widgetWidth := widget.bottomRight.X - widget.topLeft.X
+	graphWidth := widgetWidth - 3
+	maxValue := num.Max(widget.cpuValues...)
+	startIndex := num.Max(0, len(widget.cpuValues)-graphWidth)
 
-	view, err := gui.SetView(viewName, topLeft.X, topLeft.Y, graphWidth+3, termHeight-ui.MarginBottom)
-	if err != nil && err != gocui.ErrUnknownView {
-		// ErrUnknownView is not a real error condition.
-		// It just says that the view did not exist before and needs initialization.
-		return err
+	log.Printf("Redrawing CPU widget. Width: %d", widgetWidth)
+
+	// Draw the CPU graph line by line, from top to bottom
+	builder := strings.Builder{}
+	for row := maxValue; row > 0; row-- {
+
+		// Y axis label
+		builder.WriteString(fmt.Sprintf("%2v ", row))
+
+		// Build current graph row
+		for col := startIndex; col < len(widget.cpuValues); col++ {
+			var char string
+			if widget.cpuValues[col] >= row {
+				char = "\u2588"
+			} else {
+				char = " "
+			}
+			_, err := builder.WriteString(char)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Emit row to the screen
+		_, err := fmt.Fprintln(widget.view, builder.String())
+		if err != nil {
+			return err
+		}
+		builder.Reset()
 	}
-
-	view.Clear()
-
-	view.Title = viewName
-	view.Highlight = true
-	view.FgColor = gocui.ColorCyan
-	view.SelFgColor = gocui.ColorCyan
-
-	if cpuVal, err := getCPU(); err != nil {
-		log.Panicln("Failed to get cpu", err)
-	} else {
-		widget.values = append(widget.values, cpuVal)
-	}
-
-	printGraph(widget.values, view, graphWidth)
 
 	return nil
 }
@@ -97,41 +136,24 @@ func (widget *Widget) Redraw(topLeft geo.Point) error {
 //   Private methods
 // ------------------ //
 
-func printGraph(values []int, view *gocui.View, graphWidth int) {
-
-	max := 0
-	for _, val := range values {
-		if val > max {
-			max = val
-		}
+// setView is a convenient wrapper for gocui.Gui.SetView
+func (widget *CPUWidget) setView() (*gocui.View, error) {
+	view, err := widget.gui.SetView(cpuWidgetName, widget.topLeft.X, widget.topLeft.Y, widget.bottomRight.X, widget.bottomRight.Y)
+	if err != nil && err != gocui.ErrUnknownView {
+		// ErrUnknownView is not a real error condition.
+		// It just says that the view did not exist before and needs initialization.
+		return nil, err
 	}
+	return view, nil
+}
 
-	start := num.Max(0, len(values)-graphWidth)
-
-	builder := strings.Builder{}
-	for row := max; row > 0; row-- {
-
-		builder.WriteString(fmt.Sprintf("%2v ", row))
-
-		for col := start; col < len(values); col++ {
-			if values[col] >= row {
-				_, err := builder.WriteString("\u2588")
-				if err != nil {
-					log.Panicln(err)
-				}
-			} else {
-				_, err := builder.WriteString(" ")
-				if err != nil {
-					log.Panicln(err)
-				}
-			}
-		}
-		_, err := fmt.Fprintln(view, builder.String())
-		if err != nil {
-			log.Panicln(err)
-		}
-		builder.Reset()
+func (widget *CPUWidget) addCPUSample() error {
+	cpuVal, err := getCPU()
+	if err != nil {
+		return err
 	}
+	widget.cpuValues = append(widget.cpuValues, cpuVal)
+	return nil
 }
 
 func getCPU() (int, error) {
@@ -146,6 +168,7 @@ func getCPU() (int, error) {
 
 	parts := strings.Fields(buf.String())
 	if len(parts) < 2 {
+		log.Println("Less than 2 parts in CPU command output", buf.String())
 		return 0, nil
 	}
 	cpuStr := strings.TrimSpace(parts[1])
