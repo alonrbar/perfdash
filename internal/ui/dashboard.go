@@ -1,4 +1,4 @@
-package dashboard
+package ui
 
 import (
 	"log"
@@ -8,19 +8,11 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// ------------------ //
-//   Public types
-// ------------------ //
-
 // Dashboard is the main UI element
 type Dashboard struct {
 	gui       *gocui.Gui
 	cpuWidget *widgets.CPUWidget
 }
-
-// ------------------ //
-//   Private types
-// ------------------ //
 
 type layoutFunc func(gui *gocui.Gui) error
 
@@ -28,8 +20,8 @@ type layoutFunc func(gui *gocui.Gui) error
 //    Constructors
 // ------------------ //
 
-// New - create new dashboard element
-func New() (*Dashboard, error) {
+// NewDashboard - create new dashboard element
+func NewDashboard() (*Dashboard, error) {
 	log.Println("Creating new dashboard")
 
 	gui, err := gocui.NewGui(gocui.OutputNormal)
@@ -61,7 +53,7 @@ func (dash *Dashboard) Open() error {
 
 	// Configure GUI widgets
 	gui := dash.gui
-	gui.SetManagerFunc(layout(dash))
+	gui.SetManagerFunc(dashboardLayout(dash))
 
 	// Set key bindings
 	err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
@@ -94,7 +86,7 @@ func (dash *Dashboard) Close() {
 // --------------------- //
 
 // Layout handler re-calculates view sizes when the terminal window resizes
-func layout(dash *Dashboard) layoutFunc {
+func dashboardLayout(dash *Dashboard) layoutFunc {
 	return func(gui *gocui.Gui) error {
 		return nil
 	}

@@ -15,10 +15,6 @@ import (
 
 const cpuWidgetName = "CPU"
 
-// ------------------ //
-//   Public types
-// ------------------ //
-
 // CPUWidget is the UI widget for the CPU meter
 type CPUWidget struct {
 	gui         *gocui.Gui

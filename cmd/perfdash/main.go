@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/user"
 
-	"github.com/alonrbar/perfdash/internal/ui/dashboard"
+	"github.com/alonrbar/perfdash/internal/ui"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	log.Println("App started")
 
 	// Start the UI
-	dash, err := dashboard.New()
+	dash, err := ui.NewDashboard()
 	if err != nil {
 		log.Fatalf("Failed to init the dashboard: %+v\n", err)
 	}
